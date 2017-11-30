@@ -5,7 +5,6 @@ namespace Cores;
  * PHP Class to Retrieve All Videos from a YouTube Channel
  * @author Henoc Djabia <henoc35@gmail.com>
  * @copyright 2017
- * Category
  */
 
 class Youtube
@@ -14,18 +13,28 @@ class Youtube
     private $youtubeService;
     private $nextPageToken;
     private $prevPageToken;
+    private $client;
+
+    public function __construct()
+    {
+        $this->client = new \Google_Client();
+    }
 
     /**
-     * Youtube constructor.
-     * @param string $key
-     * @internal param null|string $secret
+     * @param string $apiKey
      */
-    public function __construct(string $key)
+    public function apiKey(string $apiKey)
     {
-        $this->devKey = $key;
-        $client = new \Google_Client();
-        $client->setDeveloperKey($this->devKey);
-        $this->youtubeService = new \Google_Service_YouTube($client);
+        $this->devKey = $apiKey;
+    }
+
+    /**
+     * @return \Google_Service_YouTube
+     */
+    private function youtubeService(): \Google_Service_YouTube
+    {
+        $this->client->setDeveloperKey($this->devKey);
+        return $this->youtubeService = new \Google_Service_YouTube($this->client);
     }
 
 
@@ -36,7 +45,7 @@ class Youtube
      */
     private function channelResponses(string $part, array $params): \Google_Service_YouTube_ChannelListResponse
     {
-        return $responses = $this->youtubeService->channels->listChannels(
+        return $responses = $this->youtubeService()->channels->listChannels(
             $part,
             $params
         );
@@ -56,7 +65,7 @@ class Youtube
             foreach ($this->channelResponses($part, $params)->items as $its)
             {
                 $d = $its->contentDetails->relatedPlaylists->uploads;
-                $playlistItemsResponse = $this->youtubeService->playlistItems->listPlaylistItems('snippet', array(
+                $playlistItemsResponse = $this->youtubeService()->playlistItems->listPlaylistItems('snippet', array(
                     'playlistId' => $d,
                     'pageToken' => $pageToken,
                     'maxResults' => $maxResults
@@ -73,7 +82,7 @@ class Youtube
             foreach ($this->channelResponses($part, $params)->items as $its)
             {
                 $d = $its->contentDetails->relatedPlaylists->uploads;
-                $playlistItemsResponse = $this->youtubeService->playlistItems->listPlaylistItems('snippet', array(
+                $playlistItemsResponse = $this->youtubeService()->playlistItems->listPlaylistItems('snippet', array(
                     'playlistId' => $d,
                     'maxResults' => $maxResults
                 ));
@@ -144,7 +153,7 @@ class Youtube
         $params = array_filter($params);
         foreach ($this->channelResponses($part, $params)->getItems() as $item){
             $uploads = $item->contentDetails->relatedPlaylists->uploads;
-            $playlistItemsResponse = $this->youtubeService->playlistItems->listPlaylistItems('snippet', array(
+            $playlistItemsResponse = $this->youtubeService()->playlistItems->listPlaylistItems('snippet', array(
                 'playlistId' => $uploads
             ));
             return $playlistItemsResponse->getItems()[0]->snippet;
