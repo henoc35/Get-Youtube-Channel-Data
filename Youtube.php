@@ -11,46 +11,55 @@ namespace Cores;
 class Youtube
 {
     private $devKey;
-    //private $secretKey;
     private $youtubeService;
     private $nextPageToken;
     private $prevPageToken;
 
     /**
      * Youtube constructor.
-     * @param string $dev
+     * @param string $key
      * @internal param null|string $secret
      */
-    public function __construct(string $dev/*, ?string $secret = null*/)
+    public function __construct(string $key)
     {
-        $this->devKey = $dev;
-        //$this->secretKey = $secret;
+        $this->devKey = $key;
         $client = new \Google_Client();
         $client->setDeveloperKey($this->devKey);
         $this->youtubeService = new \Google_Service_YouTube($client);
+    }
+
+
+    /**
+     * @param string $part
+     * @param array $params
+     * @return \Google_Service_YouTube_ChannelListResponse
+     */
+    private function channelResponses(string $part, array $params): \Google_Service_YouTube_ChannelListResponse
+    {
+        return $responses = $this->youtubeService->channels->listChannels(
+            $part,
+            $params
+        );
     }
 
     /**
      * @param $part
      * @param $params
      * @param null|string $pageToken
+     * @param int $maxResults
      * @return array
      */
-    public function getVideosByChanelId($part, $params, ?string $pageToken = null): array
+    public function getVideosByChanelId(string $part, array $params, ?string $pageToken = null, int $maxResults = 9): array
     {
         $params = array_filter($params);
-        $responses = $this->youtubeService->channels->listChannels(
-            $part,
-            $params
-        );
         if (!is_null($pageToken)){
-            foreach ($responses->items as $its)
+            foreach ($this->channelResponses($part, $params)->items as $its)
             {
                 $d = $its->contentDetails->relatedPlaylists->uploads;
                 $playlistItemsResponse = $this->youtubeService->playlistItems->listPlaylistItems('snippet', array(
                     'playlistId' => $d,
                     'pageToken' => $pageToken,
-                    'maxResults' => 5
+                    'maxResults' => $maxResults
                 ));
 
                 $this->setPrevPageToken($playlistItemsResponse->getPrevPageToken());
@@ -61,12 +70,12 @@ class Youtube
                 }
             }
         }else{
-            foreach ($responses->items as $its)
+            foreach ($this->channelResponses($part, $params)->items as $its)
             {
                 $d = $its->contentDetails->relatedPlaylists->uploads;
                 $playlistItemsResponse = $this->youtubeService->playlistItems->listPlaylistItems('snippet', array(
                     'playlistId' => $d,
-                    'maxResults' => 5
+                    'maxResults' => $maxResults
                 ));
 
                 $this->setPrevPageToken($playlistItemsResponse->getPrevPageToken());
@@ -84,7 +93,7 @@ class Youtube
      * @param string $date
      * @return string
      */
-    public function getPublishAt(string $date): string
+    public static function getPublishAt(string $date): string
    {
        $timezone = NULL;
        $resul = new \DateTime($date, $timezone);
@@ -125,5 +134,21 @@ class Youtube
         $this->nextPageToken = $nextPageToken;
     }
 
+    /**
+     * @param string $part
+     * @param array $params
+     * @return \Google_Service_YouTube_PlaylistItemSnippet
+     */
+    public function getLastVideoFromChannel(string $part, array $params): \Google_Service_YouTube_PlaylistItemSnippet
+    {
+        $params = array_filter($params);
+        foreach ($this->channelResponses($part, $params)->getItems() as $item){
+            $uploads = $item->contentDetails->relatedPlaylists->uploads;
+            $playlistItemsResponse = $this->youtubeService->playlistItems->listPlaylistItems('snippet', array(
+                'playlistId' => $uploads
+            ));
+            return $playlistItemsResponse->getItems()[0]->snippet;
+        }
+    }
 
 }
